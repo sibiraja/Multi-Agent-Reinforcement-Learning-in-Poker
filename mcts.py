@@ -99,7 +99,6 @@ def init_game(self, state=None):
         self.init_player = s
         return state, self.game_pointer
 
-  # TODO: How is the else loop different from the logic in the if check?
     else:
         ''' Initialilze the game of Limit Texas Hold'em
 
@@ -180,6 +179,9 @@ class TreeSearch():
     self.player_id = player_id
     self.use_raw = False
     self.trajectory = []
+    self.vector_to_string_S = {0: 'SJ', 1: 'SQ', 2: 'SK'}
+    self.vector_to_string = {0: 'J', 1: 'Q', 2: 'K'}
+    self.string_to_vector = {'J': (1, 0, 0), 'Q': (0, 1, 0), 'K': (0, 0, 1)}
 
   def eval_step(self, state):
     # get overall state
@@ -190,7 +192,7 @@ class TreeSearch():
       obs['chips'] = [obs['chips'][1], obs['chips'][0]]
       obs['hand_cards'] = (obs['hand_cards'][1][1], obs['hand_cards'][0][1])
     else:
-      print("PRINT: ", obs['chips'])
+      # print("PRINT: ", obs['chips'])
       # obs['chips'] = (obs['chips'][0][1], obs['chips'][1][1])
       obs['chips'] = [obs['chips'][0], obs['chips'][1]]
       obs['hand_cards'] = (obs['hand_cards'][0][1], obs['hand_cards'][1][1])
@@ -198,11 +200,14 @@ class TreeSearch():
     if obs['public_card'] != None:
       obs['public_card'] = obs['public_card'][1]
 
-    state = (obs['chips'], obs['public_card'], obs['hand_cards'], obs['current_round'])
+    state = (tuple(obs['chips']), obs['public_card'], tuple(obs['hand_cards']), obs['current_round'])
 
     legal_actions = obs['legal_actions']
 
     # take the action with the highest UCB score
+
+    own_card = self.string_to_vector[obs['hand_cards'][0]]
+    opponent_card = self.string_to_vector[obs['hand_cards'][1]]
     """
     action_values = []
     for action in legal_actions:
@@ -211,9 +216,84 @@ class TreeSearch():
     take_action_index = np.argmax(action_values[2])
     take_action = legal_actions[take_action_index]
     """
-    #PLACEHOLDER: Take a random action
-    take_action_index = np.random.choice(range(0,len(legal_actions)))
+    chips = obs['chips']
+    public_card = obs['public_card']
+
+    action_UCB = []
+    new_round = None
+
+    new_chips = [0, 0]
+    current_round = obs['current_round']
+
+    # # print("UCB FOR CURRENT STATE: ", self.state_nodes)
+    # for key, value in self.state_nodes.items():
+    #   # print("KEY: ", key)
+    #   # print("VALUE: ", value)
+
+
+    for action in legal_actions:
+      weights = self.probs(own_card, opponent_card)
+      new_public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
+      
+      
+      if action == "call":
+        if chips[0] != 1 and obs['current_round'] == 0:
+          new_round = True
+
+        
+        new_chips[0] = chips[1]
+        if new_round == True:
+          
+          if first_player == True:
+            next_state = ((new_chips[0], chips[1]), new_public_card, (obs['hand_cards'][0], obs['hand_cards'][1]), current_round + 1)
+            action_UCB.append(self.state_nodes[next_state][2])
+          else:
+            next_state = ((chips[1], new_chips[0]), new_public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round + 1)
+            action_UCB.append(-self.state_nodes[next_state][2])
+        else:
+          next_state = ((chips[1],new_chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
+          action_UCB.append(-self.state_nodes[next_state][2])
+          
+
+      elif action == "check":
+        if current_round == 0:
+          new_round = True
+
+        if new_round == True:
+          next_state = ((chips[1], chips[0]), new_public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round + 1)
+          action_UCB.append(-self.state_nodes[next_state][2])
+        else:
+          next_state = ((chips[1], chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
+          action_UCB.append(-self.state_nodes[next_state][2])
+
+      elif action == "raise":
+        if current_round == 0:
+          new_chips[0] = max([chips[0], chips[1]]) + 2
+        else:
+          new_chips[0] = max([chips[0], chips[1]]) + 4
+        next_state = ((chips[1], new_chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
+        action_UCB.append(-self.state_nodes[next_state][2])
+
+      elif action == "fold":
+        # action_UCB.append(-chips[0]/2)
+        action_UCB.append(float("-inf"))
+
+      else:
+        raise Exception("Illegal action")
+
+    take_action_index = np.argmax(action_UCB)
     take_action = legal_actions[take_action_index]
+    """
+    action_values = []
+    for action in legal_actions:
+      action_values.append(self.state_nodes[state])
+
+    take_action_index = np.argmax(action_values[2])
+    take_action = legal_actions[take_action_index]
+    """
+    # #PLACEHOLDER: Take a random action
+    # take_action_index = np.random.choice(range(0,len(legal_actions)))
+    # take_action = legal_actions[take_action_index]
 
     # before running this, we need a global trajectory
     global trajectory
@@ -222,13 +302,29 @@ class TreeSearch():
     info = {take_action}
 
     return take_action_index, info
+    # return take_action_index
 
   # same as eval_step
   def step(self, state):
-    return self.eval_step(self, state)
+    take_action_index, info = self.eval_step(self, state)
+    return takle_action_index
 
   def return_trajectory(self):
     return self.trajectory
+
+  def probs(self, state, opponent = [0, 0, 0]):
+  
+
+    probs = np.array([2, 2, 2])
+    state = np.array(state)
+    # print("STATE: ", state)
+    opponent = np.array(opponent)
+    # print("OPPONENT: ", opponent)
+    # print("Probs: ", probs)
+    probs = probs - state[0:3] - opponent
+    probs = probs/sum(probs)
+
+    return list(probs)
 
 
 
@@ -245,7 +341,7 @@ class MCTS():
     self.state_nodes = defaultdict(lambda: (0, 0, float("inf")))
     self.vector_to_string_S = {0: 'SJ', 1: 'SQ', 2: 'SK'}
     self.vector_to_string = {0: 'J', 1: 'Q', 2: 'K'}
-    self.string_to_vector = {'J': [1, 0, 0], 'Q': [0, 1, 0], 'K': [0, 0, 1]}
+    self.string_to_vector = {'J': (1, 0, 0), 'Q': (0, 1, 0), 'K': (0, 0, 1)}
 
   # updates values at state_nodes from a trajectory
   def update_trajectories(self, payoff):
@@ -263,11 +359,18 @@ class MCTS():
 
       total_visits += 1
 
-      prev_state = trajectory[i-1]
+      prev_state = trajectory[i-1][0] # ((2, 2), 'K', ('J', 'J'), 1), 0
+      # print("PREV STATE: ", prev_state)
+      # print("STATE NODES: ", self.state_nodes)
       _, prev_visits, _ = self.state_nodes[prev_state]
+      # print("PREV VISITS: ", prev_visits)
+
+
 
       # if not the root node, update the UCB score
       if i != 0:
+        first_term = total_return/total_visits
+        second_term = math.sqrt(np.log(prev_visits)/total_visits)
         UCB = total_return/total_visits + math.sqrt(np.log(prev_visits)/total_visits)
 
       self.state_nodes[state] = (total_return, total_visits, UCB)
@@ -289,9 +392,13 @@ class MCTS():
     else:
       hand = self.vector_to_string_S[np.argmax(obs[0:3])]
 
-    chips = (0, 0)
+    chips = [0, 0]
     chips[0] = np.argmax(obs[6:21])
+    # print("OBS[6:21]: ", obs[6:21])
+    # print("CHIPS[0]: ", chips[0])
     chips[1] = np.argmax(obs[21:36])
+    # print("OBS[21:36]: ", obs[21:36])
+    # print("CHIPS[1]: ", chips[1])
 
     state = {'current_player': self.player_id, 'public_card': public_card, 'hand': hand, 'all_chips': chips}
 
@@ -321,7 +428,8 @@ class MCTS():
       trajectory = []
 
     # after finishing rollouts, decide what action to take (same as eval_step)
-    return self.eval_step(self, state)
+    final_action_index, info = self.eval_step(state)
+    return final_action_index
 
   # take the next action, but do not do rollouts or update any nodes
   def eval_step(self, state):
@@ -362,41 +470,65 @@ class MCTS():
     win_rates = []
 
     first_player = (self.env.game.init_player == self.player_id)
-    print(legal_actions)
+    # print("LEGAL ACTIONS: ", legal_actions)
     print(type(legal_actions))
+
+    new_chips = [0, 0]
     for action_number in legal_actions:
       # action_number = action[0]
 
       action_mapping = {0: "call", 1: "raise", 2: "fold", 3: "check"}
 
       action = action_mapping[action_number]
+      # print("ACTION: ", action)
+
+      weights = self.probs(obs, self.string_to_vector[opponent_card])
+      new_public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
 
       if action == "call":
         if chips[0] != 1 and current_round == 0:
           new_round = True
 
-        chips[0] = chips[1]
+        new_chips[0] = chips[1]
         if new_round == True:
-          weights = self.probs(obs, self.string_to_vector[opponent_card])
-          public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
+          
           if first_player == True:
-            next_state = ((chips[0], chips[1]), public_card, (own_card, opponent_card), current_round + 1)
+            next_state = ((new_chips[0], chips[1]), new_public_card, (own_card, opponent_card), current_round + 1)
             try:
               win_rates.append(self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
             except ZeroDivisionError:
               win_rates.append(float("-inf"))
           else:
-            next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round+1)
+            next_state = ((chips[1], new_chips[0]), new_public_card, (opponent_card, own_card), current_round+1)
             try:
               win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
             except ZeroDivisionError:
               win_rates.append(float("-inf"))
+        else:
+          next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round)
+          try:
+            win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
+          except ZeroDivisionError:
+            win_rates.append(float("-inf"))
+
+      # elif action == "check":
+      #   new_round = True
+      #   weights = self.probs(obs, self.string_to_vector[opponent_card])
+      #   public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
+      # #   next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round + 1)
+      #   try:
+      #     win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
+      #   except ZeroDivisionError:
+      #     win_rates.append(float("-inf"))
 
       elif action == "check":
-        new_round = True
-        weights = self.probs(obs, self.string_to_vector[opponent_card])
-        public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
-        next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round + 1)
+        if current_round == 0:
+          new_round = True
+
+        if new_round == True:
+          next_state = ((chips[1], chips[0]), new_public_card, (opponent_card, own_card), current_round + 1)
+        else:
+          next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round)
         try:
           win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
         except ZeroDivisionError:
@@ -404,27 +536,34 @@ class MCTS():
 
       elif action == "raise":
         if current_round == 0:
-          chips[0] = max([chips[0], chips[1]]) + 2
+          new_chips[0] = max([chips[0], chips[1]]) + 2
         else:
-          chips[0] = max([chips[0], chips[1]]) + 4
-        next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round)
+          new_chips[0] = max([chips[0], chips[1]]) + 4
+        next_state = ((chips[1], new_chips[0]), public_card, (opponent_card, own_card), current_round)
         try:
           win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
         except ZeroDivisionError:
           win_rates.append(float("-inf"))
 
       elif action == "fold":
+        print("==CHOOSING TO FOLD==")
         win_rates.append(-chips[0]/2)
 
       else:
         raise Exception("Illegal action")
+
+      if action != "fold":
+        print("NEXT STATE :" , next_state)
 
     final_action_index = np.argmax(win_rates)
     final_action = win_rates[final_action_index]
 
     info = {}
 
+
+    print("WIN RATES: ", win_rates)
     return final_action_index, info
+    # return final_action_index
 
   def probs(self, state, opponent = [0, 0, 0]):
 
