@@ -256,7 +256,6 @@ class TreeSearch():
     #   # print("KEY: ", key)
     #   # print("VALUE: ", value)
 
-
     for action in legal_actions:
       weights = self.probs(own_card, opponent_card)
       new_public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
@@ -274,16 +273,20 @@ class TreeSearch():
           # print("Next state for choosing call inside Treesearch: ", next_state)
           if self.state_nodes[next_state][2] != float("inf"):
             action_UCB.append(-self.state_nodes[next_state][2])
+            print("We are querying action call, and getting a finite value, next state is: ", next_state)
           else:
             action_UCB.append(self.state_nodes[next_state][2])
+            print("We are querying action call, and getting negative infinity, next state is: ", next_state)
         else:
           next_state = ((chips[1],new_chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
           # print("Next state for choosing call inside Treesearch: ", next_state)
           # action_UCB.append(-self.state_nodes[next_state][2])
           if self.state_nodes[next_state][2] != float("inf"):
               action_UCB.append(-self.state_nodes[next_state][2])
+              print("We are querying action call, and getting a finite value, next state is: ", next_state)
           else:
             action_UCB.append(self.state_nodes[next_state][2])
+            print("We are querying action call, and getting negative infinity, next state is: ", next_state)
           
 
       elif action == "check":
@@ -295,15 +298,19 @@ class TreeSearch():
           # action_UCB.append(-self.state_nodes[next_state][2])
           if self.state_nodes[next_state][2] != float("inf"):
               action_UCB.append(-self.state_nodes[next_state][2])
+              print("It is a new round and we are choosing action check, and getting a finite value, next state is: ", next_state)
           else:
             action_UCB.append(self.state_nodes[next_state][2])
+            print("We are querying action check, and getting negative infinity, next state is: ", next_state)
         else:
           next_state = ((chips[1], chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
           # action_UCB.append(-self.state_nodes[next_state][2])
           if self.state_nodes[next_state][2] != float("inf"):
               action_UCB.append(-self.state_nodes[next_state][2])
+              print("It is not a new round and we are choosing action check, and getting a finite value, next state is: ", next_state)
           else:
             action_UCB.append(self.state_nodes[next_state][2])
+            print("It is not a new round and we are choosing action check, and getting negative infinity, next state is: ", next_state)
 
       elif action == "raise":
         if current_round == 0:
@@ -316,12 +323,15 @@ class TreeSearch():
         # action_UCB.append(-self.state_nodes[next_state][2])
         if self.state_nodes[next_state][2] != float("inf"):
           action_UCB.append(-self.state_nodes[next_state][2])
+          print("We are querying action raise, and getting a finite value, next state is: ", next_state)
         else:
           action_UCB.append(self.state_nodes[next_state][2])
+          print("We are querying action raise, and getting negative infinity, next state is: ", next_state)
 
       elif action == "fold":
         # action_UCB.append(-chips[0]/2)
         action_UCB.append(float("-inf"))
+        print("We are querying action fold")
 
       else:
         raise Exception("Illegal action")
@@ -353,6 +363,8 @@ class TreeSearch():
     info = {take_action}
 
     # print(f"Treesearch {self.player_id} is taking action: ", take_action)
+
+    print("Treesearch is taking action: ", take_action)
 
     return actual_action, info
     # return take_action_index
@@ -492,6 +504,7 @@ class MCTS():
 
       # Run a single rollout
       trajectories, payoffs = initialized_env.run(is_training=False, state = state)
+      print("================FINISHED AN MCTS ITERATION================")
       # print('LAST TRAJECTORY', trajectories[self.player_id][-1])
 
 
@@ -545,6 +558,8 @@ class MCTS():
   # take the next action, but do not do rollouts or update any nodes
   def eval_step(self, state):
 
+    print("Inside MCTS EVAL STEP, currently at state, ", state)
+
     obs = self.env.get_state(self.player_id)
     temp = obs['legal_actions']
     # print(type(legal_actions))
@@ -582,7 +597,7 @@ class MCTS():
     if max(obs[3:6]) == 0:
       public_card = None
     else:
-      public_card = self.vector_to_string_S[np.argmax(obs[3:6])]
+      public_card = self.vector_to_string[np.argmax(obs[3:6])]
 
     # figure out the current round
     if public_card == None:
@@ -616,6 +631,7 @@ class MCTS():
 
       weights = self.probs(obs, self.string_to_vector[opponent_card])
       new_public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
+      print("PUBLIC CARD: ", public_card)
 
       if action == "call":
         if chips[0] != 1 and current_round == 0:
@@ -630,11 +646,13 @@ class MCTS():
           except ZeroDivisionError:
             win_rates.append(float("-inf"))
         else:
-          next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round)
+          next_state = ((chips[1], new_chips[0]), public_card, (opponent_card, own_card), current_round)
           try:
             win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
           except ZeroDivisionError:
             win_rates.append(float("-inf"))
+
+        print("Inside MCTS, querying action call, next state is: ", next_state)
 
         # print("NEXT STATE: ", next_state)
 
@@ -672,6 +690,9 @@ class MCTS():
         except ZeroDivisionError:
           win_rates.append(float("-inf"))
 
+
+        print("Inside MCTS, querying action raise, next state is: ", next_state)
+
       elif action == "fold":
         # print("==CHOOSING TO FOLD==")
         win_rates.append(-chips[0]/2)
@@ -681,6 +702,9 @@ class MCTS():
 
       # if action != "fold":
         # print("NEXT STATE :" , next_state)
+
+
+    # print("NEXT STATE INSIDE MCTS: ", next_state)
 
     print("WIN RATES: ", win_rates)
 
