@@ -43,6 +43,7 @@ def reset(self, state=None):
 
         state, player_id = self.game.init_game(state)
         self.action_recorder = []
+        print("EXRACTED STATE INSIDE RESET: ", self._extract_state(state))
         return self._extract_state(state), player_id
 
 
@@ -111,6 +112,7 @@ def init_game(self, state=None):
                 (int): Current player's id
         '''
         # Initilize a dealer that can deal cards
+        print("INSIDE INIT GAME, STATE: ", state)
 
         self.dealer = Dealer(self.np_random)
 
@@ -120,22 +122,28 @@ def init_game(self, state=None):
         # Initialize a judger class which will decide who wins in the end
         self.judger = Judger(self.np_random)
 
-        s = state['current_player']
-        b = (s + 1) % self.num_players
-        self.players[b].in_chips = state['all_chips'][b]
-        self.players[s].in_chips = state['all_chips'][s]
+        s = state['current_player'] # s is mcts
+        b = 1-s
+        self.players[b].in_chips = state['all_chips'][0]
+        self.players[s].in_chips = state['all_chips'][1]
+        # self.players[b].in_chips = 2
+        # self.players[s].in_chips = 4
+
+        print("========CHIPS INSIDE INIT GAME: ", self.players[b].in_chips, self.players[s].in_chips)
 
         # The player with small blind plays the first
         self.init_player = s
         self.game_pointer = s
         # Prepare for the first round
 
+        # print()
+
         self.players[self.game_pointer].hand = Card(state['hand'][0], state['hand'][1])
         if not state['public_card']:
             self.public_card = None
         else:
             self.public_card = Card(state['public_card'][0], state['public_card'][1])
-        self.players[b].hand = random.choice([card for card in [Card('S', 'J'), Card('H', 'J'), Card('S', 'Q'), Card('H', 'Q'), Card('S', 'K'), Card('H', 'K')] if (card not in [self.players[0].hand, self.public_card])])
+        self.players[b].hand = random.choice([card for card in [Card('S', 'J'), Card('H', 'J'), Card('S', 'Q'), Card('H', 'Q'), Card('S', 'K'), Card('H', 'K')] if (card not in [self.players[s].hand, self.public_card])])
         self.dealer.deck = [x for x in self.dealer.deck if x not in [self.players[s].hand, self.players[b].hand, self.public_card]]
         # Randomly choose a small blind and a big blind
 
@@ -159,6 +167,9 @@ def init_game(self, state=None):
         self.history = []
 
         state = self.get_state(self.game_pointer)
+
+        print("========CHIPS INSIDE INIT GAME, ABOUT TO RETURN: ", self.players[b].in_chips, self.players[s].in_chips)
+        print("STATE INSIDE INIT GAME, ABOUT TO RETURN: ", state)
 
         return state, self.game_pointer
 
@@ -185,7 +196,10 @@ class TreeSearch():
 
   def eval_step(self, state):
     # get overall state
+    
     obs = self.env.get_perfect_information()
+    print("GETTING STATE", self.env.get_state(self.player_id))
+    print("INSIDE TREESEARCH, BEFORE OBS WAS ", obs)
 
     # make sure that the hand card and number of chips has our agent's values first
     if self.player_id == 1:
@@ -201,6 +215,8 @@ class TreeSearch():
       obs['public_card'] = obs['public_card'][1]
 
     state = (tuple(obs['chips']), obs['public_card'], tuple(obs['hand_cards']), obs['current_round'])
+    print("INSIDE TREESEARCH, AFTER OBS WAS ", obs)
+    print("STATE FROM TREESEARCH: ", state)
 
     legal_actions = obs['legal_actions']
 
@@ -230,6 +246,8 @@ class TreeSearch():
     #   # print("KEY: ", key)
     #   # print("VALUE: ", value)
 
+
+    first_player = (self.env.game.init_player == self.player_id)
 
     for action in legal_actions:
       weights = self.probs(own_card, opponent_card)
@@ -298,6 +316,7 @@ class TreeSearch():
     # before running this, we need a global trajectory
     global trajectory
     trajectory.append([state, self.player_id])
+    print("TRAJECTORY FROM TREESEARCH: ", trajectory)
 
     info = {take_action}
 
@@ -401,6 +420,7 @@ class MCTS():
     # print("CHIPS[1]: ", chips[1])
 
     state = {'current_player': self.player_id, 'public_card': public_card, 'hand': hand, 'all_chips': chips}
+    print("INITIAL STATE: ", state)
 
     for _ in range(self.num_rollouts):
       #create env initialized to the given start state (randomize the card for the opponent player)
@@ -409,6 +429,8 @@ class MCTS():
       initialized_env.game.init_game = types.MethodType(init_game, initialized_env.game)
 
       obs, player_id = initialized_env.reset(state = state)
+      print("OBS AFTER INITIALIZING: ", obs)
+      print("PLAYER ID AFTER INITIALIZING: ", player_id)
 
       my_player = TreeSearch(initialized_env, self.state_nodes, self.player_id)
       opponent = TreeSearch(initialized_env, self.state_nodes, 1-self.player_id)
@@ -424,6 +446,7 @@ class MCTS():
 
       # Update values at nodes
       global trajectory
+      print("TRAJECTORY FROM MCTS: ", trajectory)
       self.update_trajectories(payoffs[self.player_id])
       trajectory = []
 
@@ -468,6 +491,8 @@ class MCTS():
     # maximize over average return of taking any action at root node
     new_round = False
     win_rates = []
+
+
 
     first_player = (self.env.game.init_player == self.player_id)
     # print("LEGAL ACTIONS: ", legal_actions)

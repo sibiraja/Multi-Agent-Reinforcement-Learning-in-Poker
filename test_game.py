@@ -1,7 +1,7 @@
 ''' A toy example of playing against pretrianed AI on Leduc Hold'em
 '''
 
-from mcts import MCTS, TreeSearch, init_game
+from test import init_game, reset
 
 import rlcard
 from rlcard import models
@@ -13,18 +13,22 @@ import types
 # Make environment
 env = rlcard.make('leduc-holdem')
 env.game.init_game = types.MethodType(init_game, env.game)
+env.reset = types.MethodType(reset, env)
+
 
 human_agent = HumanAgent(env.num_actions)
 cfr_agent = models.load('leduc-holdem-cfr').agents[0]
 random_agent = RandomAgent(num_actions=env.num_actions)
-mcts_agent = MCTS(env, 2, 0)
-tree_agent = TreeSearch(env, {}, 1)
+# mcts_agent = MCTS(env, 2, 0)
+# tree_agent = TreeSearch(env, {}, 1)
 env.set_agents([
-    mcts_agent,
+    human_agent,
     human_agent
 ])
 
 
+
+env.reset(state = {'current_player': 1, 'public_card': "SQ", 'hand': "HK", 'all_chips': [10, 13]})
 
 print(">> Leduc Hold'em pre-trained model")
 
