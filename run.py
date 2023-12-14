@@ -51,7 +51,7 @@ def run(self, is_training=False, state=None):
     for player_id in range(self.num_players):
         state = self.get_state(player_id)
         trajectories[player_id].append(state)
-
+    
     # Payoffs
     payoffs = self.get_payoffs()
 

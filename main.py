@@ -18,8 +18,8 @@ env.game.init_game = types.MethodType(init_game, env.game)
 human_agent = HumanAgent(env.num_actions)
 cfr_agent = models.load('leduc-holdem-cfr').agents[0]
 random_agent = RandomAgent(num_actions=env.num_actions)
-mcts_agent = MCTS(env, 5, 0)
-tree_agent = TreeSearch(env, {}, 1)
+mcts_agent = MCTS(env, 100, 0)
+# tree_agent = TreeSearch(env, {}, 1)
 env.set_agents([
     mcts_agent,
     human_agent
