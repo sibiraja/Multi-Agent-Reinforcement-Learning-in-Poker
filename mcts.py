@@ -157,6 +157,8 @@ def init_game(self, state=None):
                            np_random=self.np_random)
 
         self.round.start_new_round(game_pointer=self.game_pointer, raised=[p.in_chips for p in self.players])
+        self.round.have_raised = state['have_raised']
+        self.round.not_raise_num = state['not_raise_num']
 
         # Count the round. There are 2 rounds in each game.
         if not state['public_card']:
@@ -223,6 +225,7 @@ class TreeSearch():
     # print("STATE FROM TREESEARCH: ", state)
 
     legal_actions = obs['legal_actions']
+    print("Legal actions inside Treesearch are: ", legal_actions)
 
     # take the action with the highest UCB score
 
@@ -320,9 +323,11 @@ class TreeSearch():
     # before running this, we need a global trajectory
     global trajectory
     trajectory.append([state, self.player_id])
-    print("TRAJECTORY FROM TREESEARCH: ", trajectory)
+    # print("TRAJECTORY FROM TREESEARCH: ", trajectory)
 
     info = {take_action}
+
+    print(f"Treesearch {self.player_id} is taking action: ", take_action)
 
     return take_action_index, info
     # return take_action_index
@@ -423,7 +428,14 @@ class MCTS():
     # print("OBS[21:36]: ", obs[21:36])
     # print("CHIPS[1]: ", chips[1])
 
-    state = {'current_player': self.player_id, 'public_card': public_card, 'hand': hand, 'all_chips': chips}
+
+    have_raised = self.env.game.round.have_raised
+    not_raise_num = self.env.game.round.not_raise_num
+
+    print("HAVE RAISED: ", have_raised)
+    print("NOT RAISE NUM: ", not_raise_num)
+
+    state = {'current_player': self.player_id, 'public_card': public_card, 'hand': hand, 'all_chips': chips, 'have_raised': have_raised, 'not_raise_num': not_raise_num}
     print("INITIAL STATE: ", state)
 
     for _ in range(self.num_rollouts):
@@ -439,6 +451,7 @@ class MCTS():
 
       my_player = TreeSearch(initialized_env, self.state_nodes, self.player_id)
       opponent = TreeSearch(initialized_env, self.state_nodes, 1-self.player_id)
+
 
       # create the environment such that we have the correct player_id
       if self.player_id == 0:
@@ -463,8 +476,27 @@ class MCTS():
   def eval_step(self, state):
 
     obs = self.env.get_state(self.player_id)
-    legal_actions = obs['legal_actions']
+    temp = obs['legal_actions']
+    # print(type(legal_actions))
+    # print("Legal actions inside MCTS are: ", legal_actions)
     obs = obs['obs']
+
+    # temp2 = []
+    legal_actions = []
+
+    for key in temp:
+      legal_actions.append(key)
+
+    # for key in temp:
+    #   for i in range(len(key)):
+    #     temp2.append(key[0][i])
+
+    # for i in range(0, len(temp2)):
+    #   legal_actions.append(temp2[i][0])
+
+    print(type(legal_actions))
+    print("Legal actions inside MCTS are: ", legal_actions)
+
 
     # Generate opponent card
     weights = self.probs(obs)
@@ -585,14 +617,20 @@ class MCTS():
       # if action != "fold":
         # print("NEXT STATE :" , next_state)
 
+    print("WIN RATES: ", win_rates)
+
     final_action_index = np.argmax(win_rates)
-    final_action = win_rates[final_action_index]
+    print("FINAL ACTION INDEX: ", final_action_index)
+    final_action = legal_actions[final_action_index]
+    print("FINAL ACTION: ", final_action)
+
+    # reverse_action_mapping = {"call": 0, "raise": 1, "fold": 2, "check": 3}
 
     info = {}
 
-
     print("WIN RATES: ", win_rates)
-    return final_action_index, info
+    print("FINAL ACTION: ", final_action)
+    return final_action, info
     # return final_action_index
 
   def probs(self, state, opponent = [0, 0, 0]):
