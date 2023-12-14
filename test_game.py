@@ -1,7 +1,7 @@
 ''' A toy example of playing against pretrianed AI on Leduc Hold'em
 '''
 
-from test import init_game, reset
+from test import init_game, reset, run
 
 import rlcard
 from rlcard import models
@@ -13,6 +13,7 @@ import types
 # Make environment
 env = rlcard.make('leduc-holdem')
 env.game.init_game = types.MethodType(init_game, env.game)
+env.run = types.MethodType(run, env)
 env.reset = types.MethodType(reset, env)
 
 
@@ -28,14 +29,14 @@ env.set_agents([
 
 
 
-env.reset(state = {'current_player': 1, 'public_card': "SQ", 'hand': "HK", 'all_chips': [10, 13]})
+# env.reset(state = {'current_player': 1, 'public_card': "SQ", 'hand': "HK", 'all_chips': [10, 13]})
 
 print(">> Leduc Hold'em pre-trained model")
 
 while (True):
     print(">> Start a new game")
 
-    trajectories, payoffs = env.run(is_training=True)
+    trajectories, payoffs = env.run(is_training=True, state = {'current_player': 1, 'public_card': "SQ", 'hand': "HK", 'all_chips': [5, 6]})
 
     # print("Trajectories: ", trajectories)
     print()

@@ -24,6 +24,7 @@ from rlcard.games.leducholdem import Round
 from rlcard.games.limitholdem import Game
 from rlcard.games.base import Card
 import random
+from run import run
 
 '''
 
@@ -43,7 +44,7 @@ def reset(self, state=None):
 
         state, player_id = self.game.init_game(state)
         self.action_recorder = []
-        print("EXRACTED STATE INSIDE RESET: ", self._extract_state(state))
+        # print("EXRACTED STATE INSIDE RESET: ", self._extract_state(state))
         return self._extract_state(state), player_id
 
 
@@ -112,7 +113,7 @@ def init_game(self, state=None):
                 (int): Current player's id
         '''
         # Initilize a dealer that can deal cards
-        print("INSIDE INIT GAME, STATE: ", state)
+        # print("INSIDE INIT GAME, STATE: ", state)
 
         self.dealer = Dealer(self.np_random)
 
@@ -129,7 +130,7 @@ def init_game(self, state=None):
         # self.players[b].in_chips = 2
         # self.players[s].in_chips = 4
 
-        print("========CHIPS INSIDE INIT GAME: ", self.players[b].in_chips, self.players[s].in_chips)
+        # print("========CHIPS INSIDE INIT GAME: ", self.players[b].in_chips, self.players[s].in_chips)
 
         # The player with small blind plays the first
         self.init_player = s
@@ -168,10 +169,13 @@ def init_game(self, state=None):
 
         state = self.get_state(self.game_pointer)
 
-        print("========CHIPS INSIDE INIT GAME, ABOUT TO RETURN: ", self.players[b].in_chips, self.players[s].in_chips)
-        print("STATE INSIDE INIT GAME, ABOUT TO RETURN: ", state)
+        # print("========CHIPS INSIDE INIT GAME, ABOUT TO RETURN: ", self.players[b].in_chips, self.players[s].in_chips)
+        # print("STATE INSIDE INIT GAME, ABOUT TO RETURN: ", state)
 
         return state, self.game_pointer
+
+
+        
 
       # https://github.com/datamllab/rlcard/blob/7fc56edebe9a2e39c94f872edd8dbe325c61b806/rlcard/games/leducholdem/player.py
       # https://github.com/datamllab/rlcard/blob/master/rlcard/games/leducholdem/game.py#L138
@@ -198,8 +202,8 @@ class TreeSearch():
     # get overall state
     
     obs = self.env.get_perfect_information()
-    print("GETTING STATE", self.env.get_state(self.player_id))
-    print("INSIDE TREESEARCH, BEFORE OBS WAS ", obs)
+    # print("GETTING STATE", self.env.get_state(self.player_id))
+    # print("INSIDE TREESEARCH, BEFORE OBS WAS ", obs)
 
     # make sure that the hand card and number of chips has our agent's values first
     if self.player_id == 1:
@@ -215,8 +219,8 @@ class TreeSearch():
       obs['public_card'] = obs['public_card'][1]
 
     state = (tuple(obs['chips']), obs['public_card'], tuple(obs['hand_cards']), obs['current_round'])
-    print("INSIDE TREESEARCH, AFTER OBS WAS ", obs)
-    print("STATE FROM TREESEARCH: ", state)
+    # print("INSIDE TREESEARCH, AFTER OBS WAS ", obs)
+    # print("STATE FROM TREESEARCH: ", state)
 
     legal_actions = obs['legal_actions']
 
@@ -425,12 +429,13 @@ class MCTS():
     for _ in range(self.num_rollouts):
       #create env initialized to the given start state (randomize the card for the opponent player)
       initialized_env = rlcard.make('leduc-holdem')
+      initialized_env.run = types.MethodType(run, initialized_env)
       initialized_env.reset = types.MethodType(reset, initialized_env)
       initialized_env.game.init_game = types.MethodType(init_game, initialized_env.game)
 
-      obs, player_id = initialized_env.reset(state = state)
-      print("OBS AFTER INITIALIZING: ", obs)
-      print("PLAYER ID AFTER INITIALIZING: ", player_id)
+      # obs, player_id = initialized_env.reset(state = state)
+      # print("OBS AFTER INITIALIZING: ", obs)
+      # print("PLAYER ID AFTER INITIALIZING: ", player_id)
 
       my_player = TreeSearch(initialized_env, self.state_nodes, self.player_id)
       opponent = TreeSearch(initialized_env, self.state_nodes, 1-self.player_id)
@@ -442,7 +447,7 @@ class MCTS():
         initialized_env.set_agents([opponent, my_player])
 
       # Run a single rollout
-      trajectories, payoffs = initialized_env.run(is_training=False)
+      trajectories, payoffs = initialized_env.run(is_training=False, state = state)
 
       # Update values at nodes
       global trajectory
@@ -571,14 +576,14 @@ class MCTS():
           win_rates.append(float("-inf"))
 
       elif action == "fold":
-        print("==CHOOSING TO FOLD==")
+        # print("==CHOOSING TO FOLD==")
         win_rates.append(-chips[0]/2)
 
       else:
         raise Exception("Illegal action")
 
-      if action != "fold":
-        print("NEXT STATE :" , next_state)
+      # if action != "fold":
+        # print("NEXT STATE :" , next_state)
 
     final_action_index = np.argmax(win_rates)
     final_action = win_rates[final_action_index]

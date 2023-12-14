@@ -9,6 +9,7 @@ from rlcard.agents import LeducholdemHumanAgent as HumanAgent
 from rlcard.agents import RandomAgent
 from rlcard.utils import print_card
 import types
+from run import run
 
 # Make environment
 env = rlcard.make('leduc-holdem')
@@ -17,7 +18,7 @@ env.game.init_game = types.MethodType(init_game, env.game)
 human_agent = HumanAgent(env.num_actions)
 cfr_agent = models.load('leduc-holdem-cfr').agents[0]
 random_agent = RandomAgent(num_actions=env.num_actions)
-mcts_agent = MCTS(env, 2, 0)
+mcts_agent = MCTS(env, 100, 0)
 tree_agent = TreeSearch(env, {}, 1)
 env.set_agents([
     mcts_agent,
@@ -56,11 +57,11 @@ while (True):
 
     print('===============     Result     ===============')
     if payoffs[0] > 0:
-        print('You win {} chips!'.format(payoffs[0]))
+        print('Player 0 wins {} chips!'.format(payoffs[0]))
     elif payoffs[0] == 0:
         print('It is a tie.')
     else:
-        print('You lose {} chips!'.format(-payoffs[0]))
+        print('Player 0 lost {} chips!'.format(-payoffs[0]))
     print('')
 
     # break
