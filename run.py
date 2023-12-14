@@ -20,7 +20,7 @@ def run(self, is_training=False, state=None):
     else:
         state, player_id = self.reset(state=state)
 
-    print(f"Legal actions inside run function: {self.get_perfect_information()['legal_actions']}")
+    # print(f"Legal actions inside run function: {self.get_perfect_information()['legal_actions']}")
 
     # Loop to play the game
     trajectories[player_id].append(state)
@@ -32,7 +32,7 @@ def run(self, is_training=False, state=None):
             action = self.agents[player_id].step(state)
 
 
-        print(f"{player_id} is taking action with index: ", action)
+        # print(f"{player_id} is taking action with index: ", action)
 
         # Environment steps
         next_state, next_player_id = self.step(action, self.agents[player_id].use_raw)
@@ -51,7 +51,7 @@ def run(self, is_training=False, state=None):
     for player_id in range(self.num_players):
         state = self.get_state(player_id)
         trajectories[player_id].append(state)
-    
+
     # Payoffs
     payoffs = self.get_payoffs()
 

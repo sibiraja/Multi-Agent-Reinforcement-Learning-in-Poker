@@ -14,6 +14,8 @@ import rlcard
 import numpy as np
 import math
 
+from tqdm import tqdm
+
 from rlcard import models
 from rlcard.agents import LeducholdemHumanAgent as HumanAgent
 from rlcard.utils import print_card
@@ -226,7 +228,7 @@ class TreeSearch():
     # print("STATE FROM TREESEARCH: ", state)
 
     legal_actions = obs['legal_actions']
-    print("Legal actions inside Treesearch are: ", legal_actions)
+    # print("Legal actions inside Treesearch are: ", legal_actions)
 
     # take the action with the highest UCB score
 
@@ -269,14 +271,14 @@ class TreeSearch():
         if new_round == True:
           
           next_state = ((chips[1], new_chips[0]), new_public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round + 1)
-          print("Next state for choosing call inside Treesearch: ", next_state)
+          # print("Next state for choosing call inside Treesearch: ", next_state)
           if self.state_nodes[next_state][2] != float("inf"):
             action_UCB.append(-self.state_nodes[next_state][2])
           else:
             action_UCB.append(self.state_nodes[next_state][2])
         else:
           next_state = ((chips[1],new_chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
-          print("Next state for choosing call inside Treesearch: ", next_state)
+          # print("Next state for choosing call inside Treesearch: ", next_state)
           # action_UCB.append(-self.state_nodes[next_state][2])
           if self.state_nodes[next_state][2] != float("inf"):
               action_UCB.append(-self.state_nodes[next_state][2])
@@ -305,12 +307,12 @@ class TreeSearch():
 
       elif action == "raise":
         if current_round == 0:
-          new_chips[0] = max([chips[0], chips[1]]) + 2
+          new_chips[0] = max([chips[0], chips[1]]) + self.env.game.round.raise_amount
         else:
-          new_chips[0] = max([chips[0], chips[1]]) + 4
+          new_chips[0] = max([chips[0], chips[1]]) + self.env.game.round.raise_amount
         
         next_state = ((chips[1], new_chips[0]), public_card, (obs['hand_cards'][1], obs['hand_cards'][0]), current_round)
-        print("Next state for choosing raise inside Treesearch: ", next_state)
+        # print("Next state for choosing raise inside Treesearch: ", next_state)
         # action_UCB.append(-self.state_nodes[next_state][2])
         if self.state_nodes[next_state][2] != float("inf"):
           action_UCB.append(-self.state_nodes[next_state][2])
@@ -323,7 +325,7 @@ class TreeSearch():
 
       else:
         raise Exception("Illegal action")
-    print("ACTION UCB: ", action_UCB)
+    # print("ACTION UCB: ", action_UCB)
 
     take_action_index = np.argmax(action_UCB)
     take_action = legal_actions[take_action_index]
@@ -350,7 +352,7 @@ class TreeSearch():
 
     info = {take_action}
 
-    print(f"Treesearch {self.player_id} is taking action: ", take_action)
+    # print(f"Treesearch {self.player_id} is taking action: ", take_action)
 
     return actual_action, info
     # return take_action_index
@@ -455,16 +457,16 @@ class MCTS():
     have_raised = self.env.game.round.have_raised
     not_raise_num = self.env.game.round.not_raise_num
 
-    print("HAVE RAISED: ", have_raised)
-    print("NOT RAISE NUM: ", not_raise_num)
+    # print("HAVE RAISED: ", have_raised)
+    # print("NOT RAISE NUM: ", not_raise_num)
 
     raise_amount = self.env.game.round.raise_amount
     allowed_raise_num = self.env.game.round.allowed_raise_num
 
     state = {'current_player': self.player_id, 'public_card': public_card, 'hand': hand, 'all_chips': chips, 'have_raised': have_raised, 'not_raise_num': not_raise_num, 'raise_amount': raise_amount, 'allowed_raise_num': allowed_raise_num}
-    print("INITIAL STATE: ", state)
+    # print("INITIAL STATE: ", state)
 
-    for _ in range(self.num_rollouts):
+    for i in tqdm(range(self.num_rollouts)):
       #create env initialized to the given start state (randomize the card for the opponent player)
       initialized_env = rlcard.make('leduc-holdem')
       initialized_env.run = types.MethodType(run, initialized_env)
@@ -490,18 +492,18 @@ class MCTS():
 
       # Run a single rollout
       trajectories, payoffs = initialized_env.run(is_training=False, state = state)
-      print('LAST TRAJECTORY', trajectories[self.player_id][-1])
+      # print('LAST TRAJECTORY', trajectories[self.player_id][-1])
 
 
       temp = trajectories[self.player_id][-1]
 
-      print(type(temp)) # this is a dict
+      # print(type(temp)) # this is a dict
 
-      for keys, values in temp.items():
-        print("keys: ", keys)
-        print("values: ", values)
+      # for keys, values in temp.items():
+      #   print("keys: ", keys)
+      #   print("values: ", values)
 
-      print("=========")
+      # print("=========")
 
 
       action_record = temp['action_record']
@@ -510,11 +512,11 @@ class MCTS():
 
       # Update values at nodes
       global trajectory
-      print("TRAJECTORY FROM MCTS: ", trajectory)
+      # print("TRAJECTORY FROM MCTS: ", trajectory)
 
       final_state_obs = trajectories[self.player_id][-1]['raw_obs']
 
-      print("LAST STATE OBS: ", final_state_obs)
+      # print("LAST STATE OBS: ", final_state_obs)
 
       my_card = final_state_obs['hand'][1]
 
@@ -528,13 +530,13 @@ class MCTS():
         # print("APPENDING TO TRAJECTORY")
         # trajectory.append([((chips[1], chips[0]), public_card, (other_player_card, my_card), 1), 1-self.player_id])
         my_tuple = (tuple(final_state_obs['all_chips']), final_state_obs['public_card'], (my_card, other_player_card), 1) # setting current round to 1 since it will always be 1 if the last action isn't fold
-        print("MY TUPLE: ", my_tuple)
+        # print("MY TUPLE: ", my_tuple)
         trajectory.append([my_tuple, 1 - action_record[-1][0]])
 
-      print("=========")
+      # print("=========")
 
 
-    print("STATE NODES: ", self.state_nodes)
+    # print("STATE NODES: ", self.state_nodes)
 
     # after finishing rollouts, decide what action to take (same as eval_step)
     final_action_index, info = self.eval_step(state)
@@ -562,8 +564,8 @@ class MCTS():
     # for i in range(0, len(temp2)):
     #   legal_actions.append(temp2[i][0])
 
-    print(type(legal_actions))
-    print("Legal actions inside MCTS are: ", legal_actions)
+    # print(type(legal_actions))
+    # print("Legal actions inside MCTS are: ", legal_actions)
 
 
     # Generate opponent card
@@ -601,7 +603,7 @@ class MCTS():
 
     first_player = (self.env.game.init_player == self.player_id)
     # print("LEGAL ACTIONS: ", legal_actions)
-    print(type(legal_actions))
+    # print(type(legal_actions))
 
     new_chips = [0, 0]
     for action_number in legal_actions:
@@ -634,7 +636,7 @@ class MCTS():
           except ZeroDivisionError:
             win_rates.append(float("-inf"))
 
-        print("NEXT STATE: ", next_state)
+        # print("NEXT STATE: ", next_state)
 
       # elif action == "check":
       #   new_round = True
@@ -661,9 +663,9 @@ class MCTS():
 
       elif action == "raise":
         if current_round == 0:
-          new_chips[0] = max([chips[0], chips[1]]) + 2
+          new_chips[0] = max([chips[0], chips[1]]) + self.env.game.round.raise_amount
         else:
-          new_chips[0] = max([chips[0], chips[1]]) + 4
+          new_chips[0] = max([chips[0], chips[1]]) + self.env.game.round.raise_amount
         next_state = ((chips[1], new_chips[0]), public_card, (opponent_card, own_card), current_round)
         try:
           win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
