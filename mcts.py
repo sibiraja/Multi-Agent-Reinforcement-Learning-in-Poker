@@ -189,6 +189,7 @@ def init_game(self, state=None):
 import types
 
 trajectory = []
+current_player = None
 
 class TreeSearch():
 
@@ -357,6 +358,9 @@ class TreeSearch():
 
     # before running this, we need a global trajectory
     global trajectory
+
+    print("STATE INSIDE TREESEARCH: ", state)
+
     trajectory.append([state, self.player_id])
     # print("TRAJECTORY FROM TREESEARCH: ", trajectory)
 
@@ -366,13 +370,17 @@ class TreeSearch():
 
     print("Treesearch is taking action: ", take_action)
 
+
+    global current_player
+    current_player = self.player_id
+
     return actual_action, info
     # return take_action_index
 
   # same as eval_step
   def step(self, state):
     take_action_index, info = self.eval_step(self, state)
-    return takle_action_index
+    return take_action_index
 
   def return_trajectory(self):
     return self.trajectory
@@ -409,7 +417,7 @@ class MCTS():
     self.string_to_vector = {'J': (1, 0, 0), 'Q': (0, 1, 0), 'K': (0, 0, 1)}
 
   # updates values at state_nodes from a trajectory
-  def update_trajectories(self, payoff):
+  def update_nodes(self, payoff):
     global trajectory
     for i in range(0, len(trajectory)):
       state = trajectory[i][0]
@@ -525,26 +533,33 @@ class MCTS():
 
       # Update values at nodes
       global trajectory
+      global current_player
       # print("TRAJECTORY FROM MCTS: ", trajectory)
 
-      final_state_obs = trajectories[self.player_id][-1]['raw_obs']
+      final_state_obs = trajectories[1 - current_player][-1]['raw_obs']
 
       # print("LAST STATE OBS: ", final_state_obs)
 
       my_card = final_state_obs['hand'][1]
 
-      other_player_last_traj = trajectories[1-self.player_id][-1]['raw_obs']
+      other_player_last_traj = trajectories[current_player][-1]['raw_obs']
       other_player_card = other_player_last_traj['hand'][1]
 
-      self.update_trajectories(payoffs[self.player_id])
+      print("ACTION RECORD: " , action_record)
 
-      # only append if last action wasn't fold --> 'action_record': [(0, 'raise'), (1, 'call')]
       if action_record[-1][1] != 'fold': 
         # print("APPENDING TO TRAJECTORY")
         # trajectory.append([((chips[1], chips[0]), public_card, (other_player_card, my_card), 1), 1-self.player_id])
-        my_tuple = (tuple(final_state_obs['all_chips']), final_state_obs['public_card'], (my_card, other_player_card), 1) # setting current round to 1 since it will always be 1 if the last action isn't fold
+        my_tuple = (tuple(final_state_obs['all_chips']), final_state_obs['public_card'][1], (my_card, other_player_card), 1) # setting current round to 1 since it will always be 1 if the last action isn't fold
         # print("MY TUPLE: ", my_tuple)
         trajectory.append([my_tuple, 1 - action_record[-1][0]])
+
+      self.update_nodes(payoffs[self.player_id])
+
+      # only append if last action wasn't fold --> 'action_record': [(0, 'raise'), (1, 'call')]
+      
+
+      trajectory = [] # reset the trajectory after each rollout because we don't want to keep appending to the same trajectory
 
       # print("=========")
 
@@ -557,6 +572,8 @@ class MCTS():
 
   # take the next action, but do not do rollouts or update any nodes
   def eval_step(self, state):
+
+    global current_player
 
     print("Inside MCTS EVAL STEP, currently at state, ", state)
 
