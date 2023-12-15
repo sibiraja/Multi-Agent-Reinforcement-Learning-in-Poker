@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1sv9UrEZ5DxtDtYpITJ7Hp4gvl7SAZmX7
 """
 
-# !pip install rlcard
 
 from collections import defaultdict
 import rlcard
@@ -16,6 +15,7 @@ import math
 
 from tqdm import tqdm
 
+# Import packages for overrides
 from rlcard import models
 from rlcard.agents import LeducholdemHumanAgent as HumanAgent
 from rlcard.utils import print_card
@@ -26,6 +26,7 @@ from rlcard.games.leducholdem import Round
 from rlcard.games.limitholdem import Game
 from rlcard.games.base import Card
 import random
+from run import run
 
 import types
 
@@ -37,6 +38,7 @@ current_player = None
 
 
 class TreeSearch:
+    # Initialize environment, current player, trajectory, etc
     def __init__(self, env, state_nodes, player_id, first_player):
         self.env = env
         self.state_nodes = state_nodes
@@ -48,50 +50,37 @@ class TreeSearch:
         self.string_to_vector = {"J": (1, 0, 0), "Q": (0, 1, 0), "K": (0, 0, 1)}
         self.first_player = first_player
 
+    # Run one step
     def eval_step(self, state):
-        # get overall state
-
+        # Get full current info of game
         obs = self.env.get_perfect_information()
-        # print("GETTING STATE", self.env.get_state(self.player_id))
-        # print("INSIDE TREESEARCH, BEFORE OBS WAS ", obs)
 
         # make sure that the hand card and number of chips has our agent's values first
         if self.player_id == 1:
             obs["chips"] = [obs["chips"][1], obs["chips"][0]]
             obs["hand_cards"] = (obs["hand_cards"][1][1], obs["hand_cards"][0][1])
         else:
-            # print("PRINT: ", obs['chips'])
-            # obs['chips'] = (obs['chips'][0][1], obs['chips'][1][1])
             obs["chips"] = [obs["chips"][0], obs["chips"][1]]
             obs["hand_cards"] = (obs["hand_cards"][0][1], obs["hand_cards"][1][1])
 
+        # Set public card
         if obs["public_card"] != None:
             obs["public_card"] = obs["public_card"][1]
 
+        # Initialize necessary state structure
         state = (
             tuple(obs["chips"]),
             obs["public_card"],
             tuple(obs["hand_cards"]),
             obs["current_round"],
         )
-        # print("INSIDE TREESEARCH, AFTER OBS WAS ", obs)
-        # print("STATE FROM TREESEARCH: ", state)
 
         legal_actions = obs["legal_actions"]
-        # print("Legal actions inside Treesearch are: ", legal_actions)
 
-        # take the action with the highest UCB score
-
+        # Query card from state
         own_card = self.string_to_vector[obs["hand_cards"][0]]
         opponent_card = self.string_to_vector[obs["hand_cards"][1]]
-        """
-    action_values = []
-    for action in legal_actions:
-      action_values.append(self.state_nodes[state])
 
-    take_action_index = np.argmax(action_values[2])
-    take_action = legal_actions[take_action_index]
-    """
         chips = obs["chips"]
         public_card = obs["public_card"]
 
@@ -101,66 +90,54 @@ class TreeSearch:
         new_chips = [0, 0]
         current_round = obs["current_round"]
 
-        # # print("UCB FOR CURRENT STATE: ", self.state_nodes)
-        # for key, value in self.state_nodes.items():
-        #   # print("KEY: ", key)
-        #   # print("VALUE: ", value)
-
+        # Iterate through actions to retrieve UCB scores
         for action in legal_actions:
+            # Sample a public card
             weights = self.probs(own_card, opponent_card)
             new_public_card = np.random.choice(["J", "Q", "K"], p=weights)
 
             if action == "call":
+                # Set new_round = True based on state conditions
                 if chips[0] != 1 and obs["current_round"] == 0:
                     new_round = True
 
                 new_chips[0] = chips[1]
                 if new_round == True:
+                    # Reset state for opponent
                     next_state = (
                         (chips[1], new_chips[0]),
                         new_public_card,
                         (obs["hand_cards"][1], obs["hand_cards"][0]),
                         current_round + 1,
                     )
-                    # print("Next state for choosing call inside Treesearch: ", next_state)
+
+                    # Append UCB for action
                     if self.state_nodes[next_state][2] != float("inf"):
                         action_UCB.append(-self.state_nodes[next_state][2])
-                        # print(
-                        #     "We are querying action call, and getting a finite value, next state is: ",
-                        #     next_state,
-                        # )
+
                     else:
                         action_UCB.append(self.state_nodes[next_state][2])
-                        # print(
-                        #     "We are querying action call, and getting negative infinity, next state is: ",
-                        #     next_state,
-                        # )
+
                 else:
+                    # Reset state for opponent
                     next_state = (
                         (chips[1], new_chips[0]),
                         public_card,
                         (obs["hand_cards"][1], obs["hand_cards"][0]),
                         current_round,
                     )
-                    # print("Next state for choosing call inside Treesearch: ", next_state)
-                    # action_UCB.append(-self.state_nodes[next_state][2])
+
+                    # Append UCB for action
                     if self.state_nodes[next_state][2] != float("inf"):
                         action_UCB.append(-self.state_nodes[next_state][2])
-                        # print(
-                        #     "We are querying action call, and getting a finite value, next state is: ",
-                        #     next_state,
-                        # )
+
                     else:
                         action_UCB.append(self.state_nodes[next_state][2])
-                        # print(
-                        #     "We are querying action call, and getting negative infinity, next state is: ",
-                        #     next_state,
-                        # )
 
             elif action == "check":
                 if current_round == 0:
                     new_round = True
-
+                # Reset state for opponent
                 if new_round == True:
                     next_state = (
                         (chips[1], chips[0]),
@@ -168,19 +145,15 @@ class TreeSearch:
                         (obs["hand_cards"][1], obs["hand_cards"][0]),
                         current_round + 1,
                     )
-                    # action_UCB.append(-self.state_nodes[next_state][2])
+
+                    # Append UCB for action
                     if self.state_nodes[next_state][2] != float("inf"):
                         action_UCB.append(-self.state_nodes[next_state][2])
-                        # print(
-                        #     "It is a new round and we are choosing action check, and getting a finite value, next state is: ",
-                        #     next_state,
-                        # )
+
                     else:
                         action_UCB.append(self.state_nodes[next_state][2])
-                        # print(
-                        #     "We are querying action check, and getting negative infinity, next state is: ",
-                        #     next_state,
-                        # )
+
+                # Reset state for opponent
                 else:
                     next_state = (
                         (chips[1], chips[0]),
@@ -188,21 +161,16 @@ class TreeSearch:
                         (obs["hand_cards"][1], obs["hand_cards"][0]),
                         current_round,
                     )
-                    # action_UCB.append(-self.state_nodes[next_state][2])
+
+                    # Append UCB for action
                     if self.state_nodes[next_state][2] != float("inf"):
                         action_UCB.append(-self.state_nodes[next_state][2])
-                        # print(
-                        #     "It is not a new round and we are choosing action check, and getting a finite value, next state is: ",
-                        #     next_state,
-                        # )
+
                     else:
                         action_UCB.append(self.state_nodes[next_state][2])
-                        # print(
-                        #     "It is not a new round and we are choosing action check, and getting negative infinity, next state is: ",
-                        #     next_state,
-                        # )
 
             elif action == "raise":
+                # Reset chips for raise
                 if current_round == 0:
                     new_chips[0] = (
                         max([chips[0], chips[1]]) + self.env.game.round.raise_amount
@@ -212,73 +180,48 @@ class TreeSearch:
                         max([chips[0], chips[1]]) + self.env.game.round.raise_amount
                     )
 
+                # Reset state for opponent
                 next_state = (
                     (chips[1], new_chips[0]),
                     public_card,
                     (obs["hand_cards"][1], obs["hand_cards"][0]),
                     current_round,
                 )
-                # print("Next state for choosing raise inside Treesearch: ", next_state)
-                # action_UCB.append(-self.state_nodes[next_state][2])
+
+                # Append UCB for action
                 if self.state_nodes[next_state][2] != float("inf"):
                     action_UCB.append(-self.state_nodes[next_state][2])
-                    # print(
-                    #     "We are querying action raise, and getting a finite value, next state is: ",
-                    #     next_state,
-                    # )
+
                 else:
                     action_UCB.append(self.state_nodes[next_state][2])
-                    # print(
-                    #     "We are querying action raise, and getting negative infinity, next state is: ",
-                    #     next_state,
-                    # )
 
             elif action == "fold":
-                # action_UCB.append(-chips[0]/2)
                 action_UCB.append(float("-inf"))
-                # print("We are querying action fold")
 
             else:
                 raise Exception("Illegal action")
-        # print("ACTION UCB: ", action_UCB)
 
+        # Retrieve best action from UCB scores
         take_action_index = np.argmax(action_UCB)
         take_action = legal_actions[take_action_index]
 
         reverse_action_mapping = {"call": 0, "raise": 1, "fold": 2, "check": 3}
         actual_action = reverse_action_mapping[take_action]
 
-        """
-    action_values = []
-    for action in legal_actions:
-      action_values.append(self.state_nodes[state])
-
-    take_action_index = np.argmax(action_values[2])
-    take_action = legal_actions[take_action_index]
-    """
-        # #PLACEHOLDER: Take a random action
-        # take_action_index = np.random.choice(range(0,len(legal_actions)))
-        # take_action = legal_actions[take_action_index]
-
         # before running this, we need a global trajectory
         global trajectory
 
-        # print("STATE INSIDE TREESEARCH: ", state)
-
+        # update trajectory
         trajectory.append([state, self.player_id])
-        # print("TRAJECTORY FROM TREESEARCH: ", trajectory)
 
         info = {take_action}
 
-        # print(f"Treesearch {self.player_id} is taking action: ", take_action)
-
-        # print("Treesearch is taking action: ", take_action)
-
+        # Set global current player
         global current_player
         current_player = self.player_id
 
+        # Return best action
         return actual_action, info
-        # return take_action_index
 
     # same as eval_step
     def step(self, state):
@@ -288,13 +231,13 @@ class TreeSearch:
     def return_trajectory(self):
         return self.trajectory
 
+    # Find opponent card probabilities
     def probs(self, state, opponent=[0, 0, 0]):
         probs = np.array([2, 2, 2])
         state = np.array(state)
-        # print("STATE: ", state)
+
         opponent = np.array(opponent)
-        # print("OPPONENT: ", opponent)
-        # print("Probs: ", probs)
+
         probs = probs - state[0:3] - opponent
         probs = probs / sum(probs)
 
@@ -303,6 +246,7 @@ class TreeSearch:
 
 #################################################################################
 class MCTS:
+    # Initialize environment, rollouts, current player, trajectory history
     def __init__(self, env, num_rollouts, player_id, model_path="./model"):
         self.env = env
         self.model_path = model_path
@@ -318,7 +262,9 @@ class MCTS:
     # updates values at state_nodes from a trajectory
     def update_nodes(self, payoff):
         global trajectory
+
         for i in range(0, len(trajectory)):
+            # Process trajectory
             state = trajectory[i][0]
             current_player = trajectory[i][1]
 
@@ -331,20 +277,18 @@ class MCTS:
 
             total_visits += 1
 
-            prev_state = trajectory[i - 1][0]  # ((2, 2), 'K', ('J', 'J'), 1), 0
-            # print("PREV STATE: ", prev_state)
-            # print("STATE NODES: ", self.state_nodes)
+            prev_state = trajectory[i - 1][0]
             _, prev_visits, _ = self.state_nodes[prev_state]
-            # print("PREV VISITS: ", prev_visits)
 
             # if not the root node, update the UCB score
             if i != 0:
-                first_term = total_return / total_visits
-                second_term = math.sqrt(np.log(prev_visits) / total_visits)
-                UCB = (((total_return + 7 * total_visits)/(14*total_visits)) / total_visits) + math.sqrt(
-                    np.log(prev_visits) / total_visits
-                )
+                # Calculate UCB score
+                UCB = (
+                    ((total_return + 7 * total_visits) / (14 * total_visits))
+                    / total_visits
+                ) + math.sqrt(np.log(prev_visits) / total_visits)
 
+            # Update dictionairy
             self.state_nodes[state] = (total_return, total_visits, UCB)
 
     # given current state, take the next action (running through the game tree)
@@ -353,7 +297,7 @@ class MCTS:
         obs = self.env.get_state(self.player_id)
         obs = obs["obs"]
 
-        current_player_id = self.player_id
+        # Set public card
         if max(obs[3:6]) == 0:
             public_card = None
         else:
@@ -364,23 +308,18 @@ class MCTS:
         else:
             hand = self.vector_to_string_S[np.argmax(obs[0:3])]
 
+        # Set chip counts
         chips = [0, 0]
         chips[0] = np.argmax(obs[6:21])
-        # print("OBS[6:21]: ", obs[6:21])
-        # print("CHIPS[0]: ", chips[0])
         chips[1] = np.argmax(obs[21:36])
-        # print("OBS[21:36]: ", obs[21:36])
-        # print("CHIPS[1]: ", chips[1])
 
         have_raised = self.env.game.round.have_raised
         not_raise_num = self.env.game.round.not_raise_num
 
-        # print("HAVE RAISED: ", have_raised)
-        # print("NOT RAISE NUM: ", not_raise_num)
-
         raise_amount = self.env.game.round.raise_amount
         allowed_raise_num = self.env.game.round.allowed_raise_num
 
+        # Initialize state
         state = {
             "current_player": self.player_id,
             "public_card": public_card,
@@ -391,8 +330,8 @@ class MCTS:
             "raise_amount": raise_amount,
             "allowed_raise_num": allowed_raise_num,
         }
-        # print("INITIAL STATE: ", state)
 
+        # Run rollouts to collect history
         for i in tqdm(range(self.num_rollouts)):
             # create env initialized to the given start state (randomize the card for the opponent player)
             initialized_env = rlcard.make("leduc-holdem")
@@ -402,10 +341,7 @@ class MCTS:
                 init_game, initialized_env.game
             )
 
-            # obs, player_id = initialized_env.reset(state = state)
-            # print("OBS AFTER INITIALIZING: ", obs)
-            # print("PLAYER ID AFTER INITIALIZING: ", player_id)
-
+            # Set first player
             first_player = self.env.game.init_player == self.player_id
 
             my_player = TreeSearch(
@@ -423,60 +359,37 @@ class MCTS:
 
             # Run a single rollout
             trajectories, payoffs = initialized_env.run(is_training=False, state=state)
-            # print("================FINISHED AN MCTS ITERATION================")
-            # print('LAST TRAJECTORY', trajectories[self.player_id][-1])
 
             temp = trajectories[self.player_id][-1]
 
-            # print(type(temp)) # this is a dict
-
-            # for keys, values in temp.items():
-            #   print("keys: ", keys)
-            #   print("values: ", values)
-
-            # print("=========")
-
             action_record = temp["action_record"]
 
-            # Update values at nodes
             global trajectory
             global current_player
-            # print("TRAJECTORY FROM MCTS: ", trajectory)
 
             final_state_obs = trajectories[1 - current_player][-1]["raw_obs"]
-
-            # print("LAST STATE OBS: ", final_state_obs)
 
             my_card = final_state_obs["hand"][1]
 
             other_player_last_traj = trajectories[current_player][-1]["raw_obs"]
             other_player_card = other_player_last_traj["hand"][1]
 
-            # print("ACTION RECORD: ", action_record)
-
+            # Check if last action wasn't fold
             if action_record[-1][1] != "fold":
-                # print("APPENDING TO TRAJECTORY")
-                # trajectory.append([((chips[1], chips[0]), public_card, (other_player_card, my_card), 1), 1-self.player_id])
                 my_tuple = (
                     tuple(final_state_obs["all_chips"]),
                     final_state_obs["public_card"][1],
                     (my_card, other_player_card),
                     1,
                 )  # setting current round to 1 since it will always be 1 if the last action isn't fold
-                # print("MY TUPLE: ", my_tuple)
+
                 trajectory.append([my_tuple, 1 - action_record[-1][0]])
 
+            # Update history
             self.update_nodes(payoffs[self.player_id])
 
-            # only append if last action wasn't fold --> 'action_record': [(0, 'raise'), (1, 'call')]
-
-            trajectory = (
-                []
-            )  # reset the trajectory after each rollout because we don't want to keep appending to the same trajectory
-
-            # print("=========")
-
-        # print("STATE NODES: ", self.state_nodes)
+            # reset the trajectory after each rollout because we don't want to keep appending to the same trajectory
+            trajectory = []
 
         # after finishing rollouts, decide what action to take (same as eval_step)
         final_action_index, info = self.eval_step(state)
@@ -486,12 +399,8 @@ class MCTS:
     def eval_step(self, state):
         global current_player
 
-        # print("Inside MCTS EVAL STEP, currently at state, ", state)
-
         obs = self.env.get_state(self.player_id)
         temp = obs["legal_actions"]
-        # print(type(legal_actions))
-        # print("Legal actions inside MCTS are: ", legal_actions)
         obs = obs["obs"]
 
         # temp2 = []
@@ -499,16 +408,6 @@ class MCTS:
 
         for key in temp:
             legal_actions.append(key)
-
-        # for key in temp:
-        #   for i in range(len(key)):
-        #     temp2.append(key[0][i])
-
-        # for i in range(0, len(temp2)):
-        #   legal_actions.append(temp2[i][0])
-
-        # print(type(legal_actions))
-        # print("Legal actions inside MCTS are: ", legal_actions)
 
         # Generate opponent card
         weights = self.probs(obs)
@@ -541,28 +440,24 @@ class MCTS:
         new_round = False
         win_rates = []
 
-        first_player = self.env.game.init_player == self.player_id
-        # print("LEGAL ACTIONS: ", legal_actions)
-        # print(type(legal_actions))
-
         new_chips = [0, 0]
-        for action_number in legal_actions:
-            # action_number = action[0]
 
+        # Cycle through legal actions to get average reward
+        for action_number in legal_actions:
             action_mapping = {0: "call", 1: "raise", 2: "fold", 3: "check"}
 
             action = action_mapping[action_number]
-            # print("ACTION: ", action)
 
             weights = self.probs(obs, self.string_to_vector[opponent_card])
             new_public_card = np.random.choice(["J", "Q", "K"], p=weights)
-            # print("PUBLIC CARD: ", public_card)
 
             if action == "call":
                 if chips[0] != 1 and current_round == 0:
                     new_round = True
 
                 new_chips[0] = chips[1]
+
+                # Reset opponent state
                 if new_round == True:
                     next_state = (
                         (chips[1], new_chips[0]),
@@ -570,6 +465,8 @@ class MCTS:
                         (opponent_card, own_card),
                         current_round + 1,
                     )
+
+                    # Check if no history of state
                     try:
                         win_rates.append(
                             -self.state_nodes[next_state][0]
@@ -584,6 +481,8 @@ class MCTS:
                         (opponent_card, own_card),
                         current_round,
                     )
+
+                    # Check if no history of state
                     try:
                         win_rates.append(
                             -self.state_nodes[next_state][0]
@@ -591,25 +490,11 @@ class MCTS:
                         )
                     except ZeroDivisionError:
                         win_rates.append(float("-inf"))
-
-                # print("Inside MCTS, querying action call, next state is: ", next_state)
-
-                # print("NEXT STATE: ", next_state)
-
-            # elif action == "check":
-            #   new_round = True
-            #   weights = self.probs(obs, self.string_to_vector[opponent_card])
-            #   public_card = np.random.choice(['J', 'Q', 'K'], p = weights)
-            # #   next_state = ((chips[1], chips[0]), public_card, (opponent_card, own_card), current_round + 1)
-            #   try:
-            #     win_rates.append(-self.state_nodes[next_state][0]/self.state_nodes[next_state][1])
-            #   except ZeroDivisionError:
-            #     win_rates.append(float("-inf"))
 
             elif action == "check":
                 if current_round == 0:
                     new_round = True
-
+                # Reset opponent state
                 if new_round == True:
                     next_state = (
                         (chips[1], chips[0]),
@@ -624,6 +509,8 @@ class MCTS:
                         (opponent_card, own_card),
                         current_round,
                     )
+
+                # Check if no history of state
                 try:
                     win_rates.append(
                         -self.state_nodes[next_state][0]
@@ -633,6 +520,7 @@ class MCTS:
                     win_rates.append(float("-inf"))
 
             elif action == "raise":
+                # Reset chips due to raise
                 if current_round == 0:
                     new_chips[0] = (
                         max([chips[0], chips[1]]) + self.env.game.round.raise_amount
@@ -641,12 +529,16 @@ class MCTS:
                     new_chips[0] = (
                         max([chips[0], chips[1]]) + self.env.game.round.raise_amount
                     )
+
+                # Reset opponent state
                 next_state = (
                     (chips[1], new_chips[0]),
                     public_card,
                     (opponent_card, own_card),
                     current_round,
                 )
+
+                # Check if no history of state
                 try:
                     win_rates.append(
                         -self.state_nodes[next_state][0]
@@ -655,36 +547,20 @@ class MCTS:
                 except ZeroDivisionError:
                     win_rates.append(float("-inf"))
 
-                # print("Inside MCTS, querying action raise, next state is: ", next_state)
-
             elif action == "fold":
-                # print("==CHOOSING TO FOLD==")
                 win_rates.append(-chips[0] / 2)
 
             else:
                 raise Exception("Illegal action")
 
-            # if action != "fold":
-            # print("NEXT STATE :" , next_state)
-
-        # print("NEXT STATE INSIDE MCTS: ", next_state)
-
-        # print("WIN RATES: ", win_rates)
-
         final_action_index = np.argmax(win_rates)
-        # print("FINAL ACTION INDEX: ", final_action_index)
         final_action = legal_actions[final_action_index]
-        # print("FINAL ACTION: ", final_action)
-
-        # reverse_action_mapping = {"call": 0, "raise": 1, "fold": 2, "check": 3}
 
         info = {}
 
-        print("WIN RATES: ", win_rates)
-        # print("FINAL ACTION: ", final_action)
         return final_action, info
-        # return final_action_index
 
+    # Find probabilities of opponent card
     def probs(self, state, opponent=[0, 0, 0]):
         probs = np.array([2, 2, 2])
         probs = probs - state[0:3] - state[3:6] - opponent

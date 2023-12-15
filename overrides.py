@@ -24,9 +24,15 @@ or at a given state (which is useful when generating rollouts in MCTS)
 
 '''
 
+
+# This function allows us to run the CFR Agent in the RLCard environment while the `is_training` flag is set to True,
+# so we can let our MCTS algorithm train against the CFR Agent (CFR doesn't support training)
 def step(self, state):
     return self.eval_step(state)[0]
 
+
+# This function is a helper for `init_game()` that allows us to extract the state from the RLCard environment so we can 
+# use initially at the current state we are at while playing a game
 def reset(self, state=None):
 
     if not state:
@@ -39,11 +45,11 @@ def reset(self, state=None):
 
         state, player_id = self.game.init_game(state)
         self.action_recorder = []
-        ##print("EXRACTED STATE INSIDE RESET: ", self._extract_state(state))
         return self._extract_state(state), player_id
 
 
-
+# This function allows us to initialize a new game of Leduc Hold'em at a given state if specified to allow for MCTS rollouts to take place in
+# the middle of games rather than be restricted to just the beginning of games
 def init_game(self, state=None):
     if not state:
         ''' Initialilze the game of Limit Texas Hold'em
@@ -108,8 +114,6 @@ def init_game(self, state=None):
                 (int): Current player's id
         '''
         # Initilize a dealer that can deal cards
-        ##print("INSIDE INIT GAME, STATE: ", state)
-
         self.dealer = Dealer(self.np_random)
 
         # Initilize two players to play the game
@@ -122,17 +126,11 @@ def init_game(self, state=None):
         b = 1-s
         self.players[s].in_chips = state['all_chips'][0]
         self.players[b].in_chips = state['all_chips'][1]
-        # self.players[b].in_chips = 2
-        # self.players[s].in_chips = 4
-
-        ##print("========CHIPS INSIDE INIT GAME: ", self.players[b].in_chips, self.players[s].in_chips)
 
         # The player with small blind plays the first
         self.init_player = s
         self.game_pointer = s
         # Prepare for the first round
-
-        ##print()
 
         self.players[self.game_pointer].hand = Card(state['hand'][0], state['hand'][1])
         if not state['public_card']:
@@ -166,9 +164,6 @@ def init_game(self, state=None):
 
         state = self.get_state(self.game_pointer)
 
-        ##print("========CHIPS INSIDE INIT GAME, ABOUT TO RETURN: ", self.players[b].in_chips, self.players[s].in_chips)
-        ##prin("STATE INSIDE INIT GAME, ABOUT TO RETURN: ", state)
-
         return state, self.game_pointer
 
 
@@ -194,8 +189,6 @@ def run(self, is_training=False, state=None):
     else:
         state, player_id = self.reset(state=state)
 
-    # print(f"Legal actions inside run function: {self.get_perfect_information()['legal_actions']}")
-
     # Loop to play the game
     trajectories[player_id].append(state)
     while not self.is_over():
@@ -204,9 +197,6 @@ def run(self, is_training=False, state=None):
             action, _ = self.agents[player_id].eval_step(state)
         else:
             action = self.agents[player_id].step(state)
-
-
-        # print(f"{player_id} is taking action with index: ", action)
 
         # Environment steps
         next_state, next_player_id = self.step(action, self.agents[player_id].use_raw)
@@ -232,7 +222,11 @@ def run(self, is_training=False, state=None):
     return trajectories, payoffs
 
 
+
+"""
+    The following references were used to create the above functions:
       # https://github.com/datamllab/rlcard/blob/7fc56edebe9a2e39c94f872edd8dbe325c61b806/rlcard/games/leducholdem/player.py
       # https://github.com/datamllab/rlcard/blob/master/rlcard/games/leducholdem/game.py#L138
       # https://github.com/datamllab/rlcard/blob/master/rlcard/envs/leducholdem.py
       # https://stackoverflow.com/questions/52292599/can-i-replace-an-existing-method-of-an-object-in-python
+"""

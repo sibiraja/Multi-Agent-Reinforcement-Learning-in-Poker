@@ -22,7 +22,6 @@ def step(self, state):
 trials = 5
 parameter_testing = {}
 for rollouts_num in [10, 50, 100, 250, 500]:
-    # Make environment
     rolls = []
     for trial in range(trials):
         env = rlcard.make("leduc-holdem")
@@ -32,18 +31,13 @@ for rollouts_num in [10, 50, 100, 250, 500]:
         random_agent = RandomAgent(num_actions=env.num_actions)
         mcts_agent = MCTS_Expected(env, rollouts_num, 0)
         rule2_agent = models.load("leduc-holdem-rule-v1").agents[0]
-        # tree_agent = TreeSearch(env, {}, 1)
         cfr_agent.step = types.MethodType(step, cfr_agent)
         env.set_agents([mcts_agent, random_agent])
 
         rewards_vs_random = []
         for i in tqdm(range(250)):
             trajectories, payoffs = env.run(is_training=True)
-
-            # Let's take a look at what the agent card is
-
             rewards_vs_random.append(payoffs[0])
-            # break
         final_reward = sum(rewards_vs_random)
         rolls.append(final_reward)
 
