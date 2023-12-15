@@ -377,7 +377,7 @@ class TreeSearch():
 
 
 #################################################################################
-class MCTS():
+class MCTS_Expected():
 
   def __init__(self, env, num_rollouts, player_id, model_path='./model'):
     self.env = env
