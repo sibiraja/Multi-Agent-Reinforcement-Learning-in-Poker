@@ -501,9 +501,9 @@ class MCTS:
             total_return, total_visits, UCB = self.state_nodes[state]
 
             if current_player == self.player_id:
-                total_return += (payoff + 7) / 14
+                total_return += payoff
             else:
-                total_return += (-payoff + 7) / 14
+                total_return += -payoff
 
             total_visits += 1
 
@@ -517,7 +517,7 @@ class MCTS:
             if i != 0:
                 first_term = total_return / total_visits
                 second_term = math.sqrt(np.log(prev_visits) / total_visits)
-                UCB = total_return / total_visits + math.sqrt(
+                UCB = (((total_return + 7 * total_visits)/(14*total_visits)) / total_visits) + math.sqrt(
                     np.log(prev_visits) / total_visits
                 )
 
@@ -856,7 +856,7 @@ class MCTS:
 
         info = {}
 
-        # print("WIN RATES: ", win_rates)
+        print("WIN RATES: ", win_rates)
         # print("FINAL ACTION: ", final_action)
         return final_action, info
         # return final_action_index
