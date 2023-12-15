@@ -26,7 +26,6 @@ from rlcard.games.leducholdem import Round
 from rlcard.games.limitholdem import Game
 from rlcard.games.base import Card
 import random
-from run import run
 
 import types
 

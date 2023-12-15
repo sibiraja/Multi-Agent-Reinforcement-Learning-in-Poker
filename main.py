@@ -1,5 +1,4 @@
-""" A toy example of playing against pretrianed AI on Leduc Hold'em
-"""
+# Import Agents & Override Functions
 from tqdm import tqdm
 from mcts import MCTS, TreeSearch, init_game
 from mcts_ev import MCTS_Expected
@@ -19,9 +18,11 @@ from overrides import run, step
 env = rlcard.make('leduc-holdem')
 env.game.init_game = types.MethodType(init_game, env.game)
 
+# Set hyperparameters
 rollout_nums_mcts = 50
 rollout_nums_mcts_ev = 250
 
+# Initialize Agents
 human_agent = HumanAgent(env.num_actions)
 cfr_agent = models.load('leduc-holdem-cfr').agents[0]
 random_agent = RandomAgent(num_actions=env.num_actions)
@@ -45,10 +46,8 @@ print(">> Leduc Hold'em pre-trained model")
 while (True):
     print(">> Start a new game")
 
+    # Run one game
     trajectories, payoffs = env.run(is_training=True)
-
-    # print("Trajectories: ", trajectories)
-    print()
 
     # If the human does not take the final action, we need to
     # print other players action
@@ -63,12 +62,14 @@ while (True):
         print('>> Player', pair[0], 'chooses', pair[1])
 
     # Let's take a look at what the agents card is
-    print('===============     Agent 1    ===============')
-    print_card(env.get_perfect_information()['hand_cards'][1])
     print('===============     Agent 0    ===============')
     print_card(env.get_perfect_information()['hand_cards'][0])
+    print('===============     Agent 1   ===============')
+    print_card(env.get_perfect_information()['hand_cards'][1])
 
     print('===============     Result     ===============')
+
+    # Print Player 0's Payoff
     if payoffs[0] > 0:
         print('Player 0 wins {} chips!'.format(payoffs[0]))
     elif payoffs[0] == 0:
