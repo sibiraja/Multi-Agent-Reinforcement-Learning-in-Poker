@@ -293,7 +293,7 @@ class TreeSearch:
 
 
 #################################################################################
-class MCTS_Expected():
+class MCTS_NoMemory():
 
   def __init__(self, env, num_rollouts, player_id, model_path='./model'):
     self.env = env
@@ -627,6 +627,10 @@ class MCTS_Expected():
     # reverse_action_mapping = {"call": 0, "raise": 1, "fold": 2, "check": 3}
 
     info = {}
+
+
+    # Reset UCB scores between rollouts --> This is the main property for the 3rd MCTS variation
+    self.state_nodes = defaultdict(lambda: (0, 0, float("inf")))
 
     return final_action, info
     # return final_action_index
